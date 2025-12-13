@@ -2,30 +2,19 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/utils/cn";
-import { PianoKeyboard } from "./PianoKeyboard";
 import { Badge } from "@/components/ui";
-import type { NoteHighlight, VoicingType } from "@/types";
+import type { NoteHighlight } from "@/types";
 
 export interface ChordDiagramProps {
   chordSymbol: string;
-  notes: NoteHighlight[];
-  voicingType?: VoicingType;
+  notes?: NoteHighlight[];
   showLabels?: boolean;
   className?: string;
 }
 
-const voicingLabels: Record<VoicingType, string> = {
-  shell: "Shell Voicing",
-  rootless: "Rootless",
-  "drop-2": "Drop-2",
-  quartal: "Quartal",
-  full: "Full Voicing",
-};
-
 export function ChordDiagram({
   chordSymbol,
-  notes,
-  voicingType = "shell",
+  notes = [],
   showLabels = true,
   className,
 }: ChordDiagramProps) {
@@ -37,28 +26,12 @@ export function ChordDiagram({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3, ease: [0.34, 1.56, 0.64, 1] }}
     >
-      {/* Chord symbol and voicing type */}
-      <div className="flex items-center gap-3">
-        <h2 className="text-3xl font-display font-bold text-primary-100">
-          {chordSymbol}
-        </h2>
-        {showLabels && (
-          <Badge variant="info" size="sm">
-            {voicingLabels[voicingType]}
-          </Badge>
-        )}
-      </div>
+      {/* Chord symbol */}
+      <h2 className="text-4xl font-display font-bold text-primary-100">
+        {chordSymbol}
+      </h2>
 
-      {/* Piano keyboard with highlights */}
-      <div className="overflow-x-auto pb-4">
-        <PianoKeyboard
-          startOctave={3}
-          endOctave={5}
-          highlightedNotes={notes}
-        />
-      </div>
-
-      {/* Note legend */}
+      {/* Note legend (only if notes provided) */}
       {showLabels && notes.length > 0 && (
         <div className="flex flex-wrap justify-center gap-2">
           {notes.map((note) => (

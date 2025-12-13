@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { cn } from "@/utils/cn";
-import { Button, Card, Badge } from "@/components/ui";
-import { ChordDiagram, PianoKeyboard } from "@/components/piano";
+import { Button, Card } from "@/components/ui";
+import { ChordDiagram } from "@/components/piano";
 import { AudioRecorder } from "@/components/audio";
 import { FeedbackPanel } from "@/components/feedback";
-import type { Bar, Lesson, DetectedChord, NoteHighlight } from "@/types";
+import { ExercisePanel } from "@/components/exercises";
+import type { Bar, Lesson, DetectedChord } from "@/types";
 
 export interface LessonViewProps {
   lesson: Lesson;
@@ -38,20 +39,7 @@ export function LessonView({
   lastAttempt,
   className,
 }: LessonViewProps) {
-  const [selectedVoicing, setSelectedVoicing] = useState<string>("shell");
-
   const progress = ((lesson.currentBarIndex + 1) / lesson.totalBars) * 100;
-
-  // Convert voicingNotes to highlight notes (with octave for piano display)
-  const highlightedNotes: NoteHighlight[] = currentBar.voicingNotes
-    ? currentBar.voicingNotes.map((vn) => ({
-        note: `${vn.note}4`, // Default to octave 4
-        role: vn.role as NoteHighlight["role"],
-      }))
-    : currentBar.recommendedVoicing.map((note, index) => ({
-        note: `${note}4`,
-        role: index === 0 ? "third" : index === 1 ? "seventh" : "root",
-      }));
 
   const handleRecordingComplete = useCallback(
     async (blob: Blob) => {
@@ -90,8 +78,6 @@ export function LessonView({
         <div data-testid="current-chord">
           <ChordDiagram
             chordSymbol={currentBar.chordSymbol}
-            notes={highlightedNotes}
-            voicingType={selectedVoicing as any}
           />
         </div>
 
@@ -114,61 +100,8 @@ export function LessonView({
         )}
       </Card>
 
-      {/* Piano keyboard with highlighted voicing notes */}
-      <Card className="py-6 px-8">
-        <h3 className="text-sm font-medium text-primary-400 text-center mb-4">
-          Recommended Voicing
-        </h3>
-        <div className="flex justify-center">
-          <PianoKeyboard
-            startOctave={4}
-            endOctave={4}
-            highlightedNotes={highlightedNotes}
-            showLabels={true}
-          />
-        </div>
-        <div className="flex flex-wrap justify-center gap-3 mt-4 text-xs text-primary-400">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-red-500"></span> Root
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-orange-500"></span> 3rd
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-cyan-500"></span> 5th
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-purple-500"></span> 7th
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-blue-500"></span> 9th
-          </span>
-        </div>
-      </Card>
-
-      {/* Voicing selector */}
-      <Card padding="sm">
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-sm text-primary-400 mr-2">Voicing:</span>
-          <div data-testid="voicing-selector" className="flex gap-2">
-            {["shell", "rootless", "drop-2", "full"].map((voicing) => (
-              <button
-                key={voicing}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                  selectedVoicing === voicing
-                    ? "bg-accent-teal text-primary-900"
-                    : "bg-primary-700 text-primary-300 hover:bg-primary-600"
-                )}
-                onClick={() => setSelectedVoicing(voicing)}
-                data-voicing={voicing}
-              >
-                {voicing.charAt(0).toUpperCase() + voicing.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
+      {/* Voicing exercises */}
+      <ExercisePanel chordSymbol={currentBar.chordSymbol} />
 
       {/* Audio recorder */}
       <Card className="py-8">

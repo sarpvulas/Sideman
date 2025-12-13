@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Square, AlertCircle, RotateCcw } from "lucide-react";
+import { Mic, Square, AlertCircle, RotateCcw, Upload } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Waveform } from "./Waveform";
 import { VolumeIndicator } from "./VolumeIndicator";
@@ -34,6 +34,7 @@ export function AudioRecorder({
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -197,6 +198,31 @@ export function AudioRecorder({
     }
   }, [audioBlob, onRecordingComplete, reset]);
 
+  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check if it's an audio file
+    if (!file.type.startsWith("audio/")) {
+      setError("Please upload an audio file");
+      return;
+    }
+
+    setError(null);
+    setAudioBlob(file);
+    setAudioUrl(URL.createObjectURL(file));
+    setStatus("stopped");
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, []);
+
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
   const isRecording = status === "recording";
   const hasRecording = status === "stopped" && audioBlob;
 
@@ -294,12 +320,44 @@ export function AudioRecorder({
           exit={{ opacity: 0, y: -5 }}
           className="text-sm text-primary-300 mt-2"
         >
-          {status === "idle" && "Tap to record your chord"}
+          {status === "idle" && "Tap to record or upload audio"}
           {status === "requesting" && "Requesting microphone..."}
           {status === "recording" && "Recording... Tap to stop"}
-          {status === "stopped" && audioBlob && "Recording complete"}
+          {status === "stopped" && audioBlob && "Audio ready"}
           {status === "error" && "Recording failed"}
         </motion.p>
+      </AnimatePresence>
+
+      {/* Upload button (when idle) */}
+      <AnimatePresence>
+        {status === "idle" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <button
+              onClick={handleUploadClick}
+              disabled={disabled}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm",
+                "bg-primary-700 text-primary-300 hover:bg-primary-600 hover:text-primary-100",
+                "transition-colors",
+                disabled && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <Upload className="w-4 h-4" />
+              Upload Audio File
+            </button>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Waveform visualization */}

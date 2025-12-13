@@ -24,7 +24,7 @@ export function Header({ className }: HeaderProps) {
               <Music className="w-6 h-6 text-primary-900" />
             </div>
             <span className="text-xl font-display font-bold text-primary-100">
-              Jazz Piano Teacher
+              Sideman
             </span>
           </Link>
 

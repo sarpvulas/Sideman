@@ -3,3 +3,4 @@
  */
 
 export * from "./coaching";
+export * from "./exercise-generation";

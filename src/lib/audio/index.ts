@@ -8,6 +8,7 @@ export * from "./fft";
 export * from "./pitch";
 export * from "./chord-inference";
 export * from "./reliability";
+export * from "./piano-synth";
 
 import { extractSegment, isSilent, AudioData } from "./decode";
 import { detectPitches, DetectedPitch } from "./pitch";
