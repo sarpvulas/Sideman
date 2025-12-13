@@ -10,9 +10,10 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const SCORE_ANALYSIS_PROMPT = `Analyze this sheet music and return ONLY a JSON object (no markdown, no explanation):
 
-{"title":"Title or Untitled","key":"Bb Major","timeSignature":"4/4","form":["A"],"bars":[{"barNumber":1,"chordSymbol":"Cm7","voicingNotes":[{"note":"C","role":"root"},{"note":"Eb","role":"third"},{"note":"G","role":"fifth"},{"note":"Bb","role":"seventh"}],"improvModes":[{"mode":"C Dorian","why":"ii chord"}]}]}
+{"title":"Title from sheet","key":"Bb Major","timeSignature":"4/4","form":["A"],"bars":[{"barNumber":1,"chordSymbol":"Cm7","voicingNotes":[{"note":"C","role":"root"},{"note":"Eb","role":"third"},{"note":"G","role":"fifth"},{"note":"Bb","role":"seventh"}],"improvModes":[{"mode":"C Dorian","why":"ii chord"}]}]}
 
 Rules:
+- title: Extract the EXACT title written on the sheet music. Look for text at the top of the page. If no title is visible, use "Untitled"
 - voicingNotes must include note name and role (root/third/fifth/seventh/ninth/eleventh/thirteenth)
 - Include at least root, third, and seventh for each chord
 - Note names: use flats (Bb, Eb, Ab) not sharps

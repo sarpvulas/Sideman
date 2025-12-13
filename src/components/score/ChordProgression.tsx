@@ -115,7 +115,7 @@ export function AnalysisResult({
           Suggested Modes
         </h3>
         <div className="space-y-2">
-          {bars.slice(0, 4).map((bar) => (
+          {bars.map((bar) => (
             <div
               key={bar.barNumber}
               className="flex items-start gap-3 p-3 bg-primary-700/50 rounded-lg"
@@ -133,11 +133,6 @@ export function AnalysisResult({
               </div>
             </div>
           ))}
-          {bars.length > 4 && (
-            <p className="text-sm text-primary-400 text-center">
-              + {bars.length - 4} more bars
-            </p>
-          )}
         </div>
       </Card>
 

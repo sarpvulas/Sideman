@@ -68,8 +68,8 @@ export async function POST(
       });
     }
 
-    // Use filename as title if Gemini returned "Untitled"
-    if (result.analysis.title === "Untitled" && filenameWithoutExt) {
+    // Always use filename as title (more meaningful than extracted title)
+    if (filenameWithoutExt) {
       result.analysis.title = filenameWithoutExt;
     }
 

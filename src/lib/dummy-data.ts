@@ -1,9 +1,9 @@
 import type { ScoreAnalysis, Lesson, Bar } from "@/types";
 
-// Dummy score analysis data for "Autumn Leaves"
+// Dummy score analysis data (fallback when Gemini fails)
 export const DUMMY_ANALYSIS: ScoreAnalysis = {
   id: "analysis-1",
-  title: "Autumn Leaves",
+  title: "Untitled",
   key: "G minor",
   timeSignature: "4/4",
   form: ["A", "A", "B", "A"],
