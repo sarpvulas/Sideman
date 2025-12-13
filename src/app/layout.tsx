@@ -6,10 +6,10 @@ import { Header } from "@/components/layout";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Jazz Piano Teacher",
+  title: "Sideman",
   description:
     "Learn jazz piano chords and voicings with AI-powered feedback and coaching",
-  keywords: ["jazz", "piano", "music education", "chord voicings", "AI tutor"],
+  keywords: ["jazz", "piano", "music education", "chord voicings", "AI tutor", "sideman"],
 };
 
 export default function RootLayout({
