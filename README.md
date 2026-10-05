@@ -73,4 +73,4 @@ Set a budget alert on the Google AI Studio key. The built-in rate limit is in-me
 ## License and author
 
 MIT, see [LICENSE](LICENSE). Built by Hüseyin Sarp Vulaş (Dubai; MSc Computational Finance, King's College London).
-LinkedIn: TODO(sarp): add LinkedIn URL
+LinkedIn: <https://www.linkedin.com/in/sarpvulas/>
