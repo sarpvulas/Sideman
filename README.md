@@ -1,80 +1,76 @@
-# Sideman - Jazz Piano AI Teacher
+# Sideman
 
-An AI-powered web application for learning jazz piano voicings and chord comping.
+An AI jazz piano teacher for the browser: upload a lead sheet, get the chords extracted, and practice voicings with a piano diagram and microphone chord recognition.
 
-## Features
+[![CI](https://github.com/sarpvulas/Sideman/actions/workflows/ci.yml/badge.svg)](https://github.com/sarpvulas/Sideman/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- **Score Analysis**: Upload jazz lead sheets (PDF/PNG/JPEG) for AI-powered chord extraction using Gemini Vision
-- **Interactive Lessons**: Practice chords with visual piano diagrams
-- **Audio Recognition**: Real-time chord detection from microphone input
-- **AI Coaching**: Personalized feedback on voicings and technique
-- **Progress Tracking**: Monitor your improvement over time
+## TL;DR
 
-## Tech Stack
+Learning jazz comping means translating chord symbols into voicings and checking your own playing by ear. Sideman reads a lead sheet with Gemini Vision, turns each bar into a practice target, and listens through the microphone to tell you whether you played the chord. It is an early-stage prototype: the core flow runs end to end, but progress is not persisted.
 
-- **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS
-- **Animations**: Framer Motion
-- **State Management**: Zustand
-- **AI**: Google Gemini API
-- **Testing**: Vitest + React Testing Library
+> TODO(sarp): add screenshot after deploy
 
-## Getting Started
+## What it does today
+
+Verified in the code and by running the API routes locally:
+
+- **Score analysis.** Upload a PDF, PNG or JPEG (max 4 MB). `POST /api/score/upload` sends it to Gemini (`gemini-2.5-pro`) and returns title, key, time signature and per-bar chord symbols, voicing notes and a suggested improvisation mode. Without an API key (or if Gemini fails) it falls back to a built-in sample lead sheet.
+- **Lessons.** Start a lesson from an analysis and step through the bars with a piano keyboard diagram.
+- **Microphone chord recognition.** Runs in the browser: FFT, pitch detection and chord inference live in `src/lib/audio` and are unit tested. An attempt is judged correct when the detected chord matches the bar's chord and the voicing type is `shell`.
+- **Voicing exercises.** `src/lib/exercises/voicing-generator.ts` builds shell, two rootless, drop-2 and full voicings for a chord symbol, with audio playback. `POST /api/exercise/generate` asks Gemini (`gemini-2.5-flash`) for exercises instead.
+- **Coaching.** `POST /api/coaching` returns written feedback from Gemini (`gemini-2.5-pro`), or canned fallback feedback when no key is set.
+
+## Tech stack
+
+Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Framer Motion, Zustand, Zod, Google Generative AI SDK, Vitest and React Testing Library.
+
+## Quickstart
+
+Requires Node 20 or newer.
 
 ```bash
-# Install dependencies
-npm install
+npm ci
+cp .env.example .env.local   # optionally add GEMINI_API_KEY
+npm run dev                  # http://localhost:3000
+```
 
-# Set up environment variables
-cp env.example .env.local
-# Add your GEMINI_API_KEY to .env.local
+Other commands:
 
-# Run development server
-npm run dev
-
-# Run tests
-npm run test
-
-# Build for production
+```bash
+npm run lint
+npx tsc --noEmit
+npm run test:unit
 npm run build
 ```
 
-## Project Structure
+## Environment variables
 
-```
-src/
-├── app/                 # Next.js App Router pages
-│   ├── api/            # API routes
-│   ├── lesson/         # Lesson pages
-│   └── progress/       # Progress tracking
-├── components/         # React components
-│   ├── ui/            # Primitive UI components
-│   ├── audio/         # Audio recording components
-│   ├── piano/         # Piano visualization
-│   ├── lesson/        # Lesson flow components
-│   ├── score/         # Score upload/analysis
-│   ├── feedback/      # User feedback components
-│   └── layout/        # Layout components
-├── hooks/             # Custom React hooks
-├── lib/               # Utilities and stores
-├── types/             # TypeScript types
-└── styles/            # Global styles
+| Name | Required | Purpose |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | For AI features | Server-side only. Without it, uploads use the sample lead sheet, coaching uses fallback text, and exercise generation returns 503. |
+| `RATE_LIMIT_PER_HOUR` | No | Max Gemini-backed requests per client IP per hour. Default 20. |
 
-tests/
-├── unit/              # Unit tests
-├── integration/       # Integration tests
-└── e2e/              # End-to-end tests
-```
+## Deploying to Vercel
 
-## Scripts
+1. Import the repository in Vercel (framework preset: Next.js, no build overrides).
+2. Set `GEMINI_API_KEY` for Production (and Preview if wanted). Optionally set `RATE_LIMIT_PER_HOUR`.
+3. Deploy, then upload a lead sheet and play a chord to check the full flow.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run test` - Run all tests
-- `npm run test:unit` - Run unit tests
-- `npm run test:coverage` - Run tests with coverage
-- `npm run lint` - Lint code
+Set a budget alert on the Google AI Studio key. The built-in rate limit is in-memory and per instance, so it reduces abuse but is not a hard cap.
 
-## License
+## Limitations
 
-MIT
+- Lessons and analyses are stored in server memory. They are lost on restart and may not be shared between serverless instances; a lesson whose data is gone falls back to the sample lead sheet.
+- The progress page shows static sample numbers; `/api/progress` returns hard-coded values and nothing is persisted.
+- Attempts are always scored against the shell voicing.
+- Chord extraction quality depends on Gemini and has not been benchmarked.
+- Uploads are limited to 4 MB to fit Vercel's request body limit.
+- The microphone chord recognizer has unit tests but has not been evaluated on recorded piano audio.
+- Gemini request and response bodies are logged to the server console, which is useful for debugging but noisy.
+- `tests/integration` and `tests/e2e` do not exist; only unit tests are present.
+
+## License and author
+
+MIT, see [LICENSE](LICENSE). Built by Hüseyin Sarp Vulaş (Dubai; MSc Computational Finance, King's College London).
+LinkedIn: TODO(sarp): add LinkedIn URL
