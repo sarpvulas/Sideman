@@ -73,34 +73,19 @@ export async function analyzeScore(
 
     const response = result.response;
 
-    // Log full response object for debugging
-    console.log("=== GEMINI RESPONSE DEBUG ===");
-    console.log("Candidates:", JSON.stringify(response.candidates, null, 2));
-    console.log("Prompt feedback:", JSON.stringify(response.promptFeedback, null, 2));
-
     const text = response.text();
-
-    // Log the raw response for debugging
-    console.log("=== GEMINI RAW RESPONSE ===");
-    console.log(text || "(empty)");
-    console.log("=== END GEMINI RESPONSE ===");
 
     // Parse JSON response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("Failed to parse Gemini response - no JSON found");
-      console.error("Response was:", text.substring(0, 500));
       return {
         success: false,
         error: "Failed to parse score analysis",
       };
     }
 
-    console.log("=== PARSED JSON ===");
-    console.log(jsonMatch[0].substring(0, 500));
-
     const parsed = JSON.parse(jsonMatch[0]);
-    console.log("Parsed successfully, bars count:", parsed.bars?.length);
 
     // Validate and transform the response
     const analysis: ScoreAnalysis = {
@@ -118,7 +103,7 @@ export async function analyzeScore(
       analysis,
     };
   } catch (error) {
-    console.error("Gemini score analysis error:", error);
+    console.error("Gemini score analysis error:", error instanceof Error ? error.message : "unknown");
     return {
       success: false,
       error: error instanceof Error ? error.message : "Score analysis failed",
