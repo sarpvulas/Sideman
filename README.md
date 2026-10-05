@@ -49,7 +49,7 @@ npm run build
 | Name | Required | Purpose |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | For AI features | Server-side only. Without it, uploads use the sample lead sheet, coaching uses fallback text, and exercise generation returns 503. |
-| `RATE_LIMIT_PER_HOUR` | No | Max Gemini-backed requests per client IP per hour. Default 20. |
+| `RATE_LIMIT_PER_HOUR` | No | Max Gemini-backed requests per client IP per hour (only requests that reach Gemini count). Default 20. |
 
 ## Deploying to Vercel
 
@@ -61,13 +61,12 @@ Set a budget alert on the Google AI Studio key. The built-in rate limit is in-me
 
 ## Limitations
 
-- Lessons and analyses are stored in server memory. They are lost on restart and may not be shared between serverless instances; a lesson whose data is gone falls back to the sample lead sheet.
+- Lessons and analyses are stored in server memory, expire after 1 hour and are capped at 200 per store. They are lost on restart and may not be shared between serverless instances. If a lesson is gone when its page loads, the page says "Your uploaded lead sheet is no longer available. Upload it again."; if it disappears while you are practicing, the next attempt fails with "Lesson not found".
 - The progress page shows static sample numbers; `/api/progress` returns hard-coded values and nothing is persisted.
 - Attempts are always scored against the shell voicing.
 - Chord extraction quality depends on Gemini and has not been benchmarked.
 - Uploads are limited to 4 MB to fit Vercel's request body limit.
 - The microphone chord recognizer has unit tests but has not been evaluated on recorded piano audio.
-- Gemini request and response bodies are logged to the server console, which is useful for debugging but noisy.
 - `tests/integration` and `tests/e2e` do not exist; only unit tests are present.
 
 ## License and author
