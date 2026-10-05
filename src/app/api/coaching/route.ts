@@ -1,29 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage, DUMMY_ANALYSIS } from "@/lib/dummy-data";
 import { generateCoaching, CoachingContext, CoachingResponse } from "@/lib/gemini";
-import type { ApiResponse, VoicingType, DetectedChord } from "@/types";
-
-interface CoachingRequestBody {
-  lessonId: string;
-  barNumber: number;
-  detectedChord: DetectedChord | null;
-  isCorrect: boolean;
-  attemptNumber?: number;
-}
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { coachingRequestSchema } from "@/lib/validation";
+import type { ApiResponse, VoicingType } from "@/types";
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<CoachingResponse>>> {
-  try {
-    const body: CoachingRequestBody = await request.json();
-    const { lessonId, barNumber, detectedChord, isCorrect, attemptNumber = 1 } = body;
+  const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Demo rate limit reached. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
 
-    if (!lessonId) {
+  try {
+    const parsed = coachingRequestSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "Lesson ID required" },
+        { success: false, error: "Invalid coaching request" },
         { status: 400 }
       );
     }
+    const { lessonId, barNumber, detectedChord, isCorrect, attemptNumber = 1 } = parsed.data;
 
     const lesson = storage.getLesson(lessonId);
     if (!lesson) {

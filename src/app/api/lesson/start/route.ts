@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage, createLessonFromAnalysis } from "@/lib/dummy-data";
+import { startLessonSchema } from "@/lib/validation";
 import type { ApiResponse, StartLessonResponse } from "@/types";
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<StartLessonResponse>>> {
   try {
-    const body = await request.json();
-    const { analysisId } = body;
+    const parsed = startLessonSchema.safeParse(await request.json());
+    const analysisId = parsed.success ? parsed.data.analysisId : null;
 
     if (!analysisId) {
       return NextResponse.json(
