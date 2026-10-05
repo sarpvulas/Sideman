@@ -52,10 +52,15 @@ export function checkRateLimit(
 }
 
 /**
- * Best-effort client identity. x-forwarded-for is client-controllable (callers
- * can prepend their own values), so it is only a fallback, and then only its
- * last hop, which is the one appended by the nearest proxy. On Vercel,
- * x-real-ip is set by the platform and takes priority.
+ * Best-effort client identity. This is only sound behind a proxy that
+ * overwrites both x-real-ip and x-forwarded-for (Vercel does). On any host
+ * where clients reach the app directly or through a proxy that appends rather
+ * than overwrites, the caller controls both headers and a single spoofed
+ * x-real-ip value bypasses the limit. No new infrastructure is used to
+ * compensate, so treat the limit as a cost safeguard for Vercel deployments.
+ *
+ * x-real-ip takes priority; otherwise the last x-forwarded-for hop (the one
+ * appended by the nearest proxy) is used.
  */
 export function clientIp(headers: Headers): string {
   const real = headers.get("x-real-ip")?.trim();
