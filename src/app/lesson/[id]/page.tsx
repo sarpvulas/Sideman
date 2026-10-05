@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { PageContainer } from "@/components/layout";
 import { LessonView } from "@/components/lesson";
 import { Card, Skeleton } from "@/components/ui";
-import { DUMMY_ANALYSIS, storage, createLessonFromAnalysis } from "@/lib/dummy-data";
+import { DUMMY_ANALYSIS } from "@/lib/dummy-data";
 import { useChordRecognition } from "@/hooks/useChordRecognition";
 import { useCoaching } from "@/hooks/useCoaching";
 import type { Lesson, Bar, DetectedChord, ScoreAnalysis } from "@/types";
@@ -43,31 +43,22 @@ export default function LessonPage() {
     const loadLesson = async () => {
       setIsLoading(true);
 
-      let storedLesson: Lesson | undefined;
-      let storedAnalysis: ScoreAnalysis = DUMMY_ANALYSIS;
-
-      // The server holds the lesson created from the uploaded score
       try {
         const res = await fetch(`/api/lesson/${encodeURIComponent(lessonId)}`);
-        const json = await res.json();
-        if (json.success) {
-          storedLesson = json.data.lesson;
-          storedAnalysis = json.data.analysis;
+        if (res.status === 404) {
+          // Lessons live in server memory and expire; do not silently swap in another score
+          setLesson(null);
+          setIsLoading(false);
+          return;
         }
-      } catch {
-        // fall through to the sample lesson
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error || "Failed to load lesson");
+        setAnalysis(json.data.analysis);
+        setLesson(json.data.lesson);
+        setCurrentBar(json.data.analysis.bars[json.data.lesson.currentBarIndex]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load lesson");
       }
-
-      // If the lesson is gone (e.g. server restarted), use the sample score
-      if (!storedLesson) {
-        const dummyLesson = createLessonFromAnalysis(DUMMY_ANALYSIS);
-        dummyLesson.id = lessonId;
-        storedLesson = dummyLesson;
-      }
-
-      setAnalysis(storedAnalysis);
-      setLesson(storedLesson);
-      setCurrentBar(storedAnalysis.bars[storedLesson.currentBarIndex]);
       setIsLoading(false);
     };
 
@@ -177,7 +168,6 @@ export default function LessonPage() {
       setLesson(updatedLesson);
       setCurrentBar(analysis.bars[nextIndex]);
       setLastAttempt(null);
-      storage.updateLesson(lesson.id, { currentBarIndex: nextIndex });
     }
   }, [lesson, analysis]);
 
@@ -191,7 +181,6 @@ export default function LessonPage() {
       setLesson(updatedLesson);
       setCurrentBar(analysis.bars[prevIndex]);
       setLastAttempt(null);
-      storage.updateLesson(lesson.id, { currentBarIndex: prevIndex });
     }
   }, [lesson, analysis]);
 
@@ -240,13 +229,13 @@ export default function LessonPage() {
             Lesson Not Found
           </h2>
           <p className="text-primary-400 mb-4">
-            This lesson doesn&apos;t exist or has expired.
+            Your uploaded lead sheet is no longer available. Upload it again.
           </p>
           <button
             className="btn-primary"
             onClick={() => router.push("/")}
           >
-            Start New Lesson
+            Upload again
           </button>
         </Card>
       </PageContainer>
