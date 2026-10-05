@@ -6,13 +6,14 @@
 
 const WINDOW_MS = 60 * 60 * 1000;
 const DEFAULT_LIMIT = 20;
-const MAX_TRACKED = 5000;
+const DEFAULT_MAX_TRACKED = 5000;
 
 interface Bucket {
   count: number;
   resetAt: number;
 }
 
+// Map keeps insertion order, so the first key is always the oldest bucket.
 const buckets = new Map<string, Bucket>();
 
 export function getLimit(env: string | undefined = process.env.RATE_LIMIT_PER_HOUR): number {
@@ -28,31 +29,43 @@ export interface RateLimitResult {
 export function checkRateLimit(
   key: string,
   limit: number = getLimit(),
-  now: number = Date.now()
+  now: number = Date.now(),
+  maxTracked: number = DEFAULT_MAX_TRACKED
 ): RateLimitResult {
-  if (buckets.size >= MAX_TRACKED) {
-    buckets.forEach((b, k) => {
-      if (b.resetAt <= now) buckets.delete(k);
-    });
-    if (buckets.size >= MAX_TRACKED) buckets.clear();
-  }
-
   const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
+  if (bucket && bucket.resetAt > now) {
+    if (bucket.count >= limit) {
+      return { allowed: false, retryAfterSec: Math.ceil((bucket.resetAt - now) / 1000) };
+    }
+    bucket.count += 1;
     return { allowed: true, retryAfterSec: 0 };
   }
-  if (bucket.count >= limit) {
-    return { allowed: false, retryAfterSec: Math.ceil((bucket.resetAt - now) / 1000) };
+
+  // New or expired bucket: re-insert so it becomes the newest, then evict oldest-first
+  buckets.delete(key);
+  buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
+  while (buckets.size > maxTracked) {
+    const oldest = buckets.keys().next().value as string;
+    buckets.delete(oldest);
   }
-  bucket.count += 1;
   return { allowed: true, retryAfterSec: 0 };
 }
 
+/**
+ * Best-effort client identity. x-forwarded-for is client-controllable (callers
+ * can prepend their own values), so it is only a fallback, and then only its
+ * last hop, which is the one appended by the nearest proxy. On Vercel,
+ * x-real-ip is set by the platform and takes priority.
+ */
 export function clientIp(headers: Headers): string {
+  const real = headers.get("x-real-ip")?.trim();
+  if (real) return real;
   const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return headers.get("x-real-ip") ?? "unknown";
+  if (forwarded) {
+    const hops = forwarded.split(",").map((h) => h.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
+  }
+  return "unknown";
 }
 
 export function resetRateLimits(): void {

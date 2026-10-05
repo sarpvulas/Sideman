@@ -28,8 +28,19 @@ describe("rate limiter", () => {
     expect(getLimit(undefined)).toBe(20);
   });
 
-  it("uses the first x-forwarded-for address", () => {
-    expect(clientIp(new Headers({ "x-forwarded-for": "1.2.3.4, 10.0.0.1" }))).toBe("1.2.3.4");
+  it("prefers x-real-ip and ignores client-prepended x-forwarded-for values", () => {
+    expect(clientIp(new Headers({ "x-real-ip": "9.9.9.9", "x-forwarded-for": "1.1.1.1, 2.2.2.2" }))).toBe("9.9.9.9");
+    expect(clientIp(new Headers({ "x-forwarded-for": "spoofed, 10.0.0.1" }))).toBe("10.0.0.1");
     expect(clientIp(new Headers())).toBe("unknown");
+  });
+
+  it("evicts the oldest bucket first instead of clearing everyone", () => {
+    const t = 1_000;
+    checkRateLimit("a", 1, t, 2);
+    checkRateLimit("b", 1, t, 2);
+    checkRateLimit("c", 1, t, 2); // evicts "a"
+    expect(checkRateLimit("b", 1, t, 2).allowed).toBe(false); // still tracked
+    expect(checkRateLimit("c", 1, t, 2).allowed).toBe(false); // still tracked
+    expect(checkRateLimit("a", 1, t, 2).allowed).toBe(true); // forgotten
   });
 });
