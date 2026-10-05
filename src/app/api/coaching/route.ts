@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storage, DUMMY_ANALYSIS } from "@/lib/dummy-data";
+import { storage } from "@/lib/dummy-data";
 import { generateCoaching, CoachingContext, CoachingResponse } from "@/lib/gemini";
 import { badRequest, errorMessage, rateLimited, readJson } from "@/lib/http";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
@@ -26,8 +26,14 @@ export async function POST(
 
     // Get bar information
     const analysis = storage.getAnalysis(lesson.scoreAnalysisId);
-    const currentBar = analysis?.bars[barNumber - 1] || DUMMY_ANALYSIS.bars[0];
-    const previousBar = barNumber > 1 ? analysis?.bars[barNumber - 2] : undefined;
+    const currentBar = analysis?.bars[barNumber - 1];
+    if (!analysis || !currentBar) {
+      return NextResponse.json(
+        { success: false, error: "Lesson not found" },
+        { status: 404 }
+      );
+    }
+    const previousBar = barNumber > 1 ? analysis.bars[barNumber - 2] : undefined;
     const expectedVoicing: VoicingType = "shell";
 
     // Build lesson history from attempts

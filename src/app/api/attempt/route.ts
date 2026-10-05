@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storage, DUMMY_ANALYSIS } from "@/lib/dummy-data";
+import { storage } from "@/lib/dummy-data";
 import { badRequest, errorMessage, readJson } from "@/lib/http";
 import { attemptRequestSchema } from "@/lib/validation";
 import type { ApiResponse, AttemptResponse, Attempt, DetectedChord, VoicingType } from "@/types";
@@ -24,7 +24,14 @@ export async function POST(
 
     // Get expected chord for this bar
     const analysis = storage.getAnalysis(lesson.scoreAnalysisId);
-    const currentBar = analysis?.bars[barNumber - 1] || DUMMY_ANALYSIS.bars[0];
+    // Never score against another score: a lesson without its analysis is gone
+    const currentBar = analysis?.bars[barNumber - 1];
+    if (!analysis || !currentBar) {
+      return NextResponse.json(
+        { success: false, error: "Lesson not found" },
+        { status: 404 }
+      );
+    }
     const expectedChord = currentBar.chordSymbol;
     const expectedVoicing: VoicingType = "shell"; // Default voicing type
 
