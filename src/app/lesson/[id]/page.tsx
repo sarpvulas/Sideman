@@ -145,10 +145,6 @@ export default function LessonPage() {
           setAttemptCount(0);
         }
 
-        // If lesson is complete, show completion message
-        if (result.data.lessonComplete) {
-          console.log("Lesson complete!");
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Evaluation failed");
       } finally {

@@ -4,9 +4,15 @@ import { z } from "zod";
 export const chordSymbolSchema = z
   .string()
   .trim()
-  .min(1)
-  .max(20)
-  .regex(/^[A-G][#b]?[A-Za-z0-9#b+\-–−°øΔ∆△(),/]*$/, "Invalid chord symbol");
+  // normalise typographic accidentals so "B♭maj7" becomes "Bbmaj7"
+  .transform((s) => s.replace(/♭/g, "b").replace(/♯/g, "#"))
+  .pipe(
+    z
+      .string()
+      .min(1)
+      .max(20)
+      .regex(/^[A-G][#b]?[A-Za-z0-9#b+\-–−°øΔ∆△(),/]*$/, "Invalid chord symbol")
+  );
 
 export const exerciseRequestSchema = z.object({
   chordSymbol: chordSymbolSchema,

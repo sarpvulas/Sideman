@@ -103,7 +103,11 @@ export async function analyzeScore(
       analysis,
     };
   } catch (error) {
-    console.error("Gemini score analysis error:", error instanceof Error ? error.message : "unknown");
+    // JSON.parse errors can quote model output, so keep the log short
+    console.error(
+      "Gemini score analysis error:",
+      (error instanceof Error ? error.message : "unknown").slice(0, 120)
+    );
     return {
       success: false,
       error: error instanceof Error ? error.message : "Score analysis failed",
