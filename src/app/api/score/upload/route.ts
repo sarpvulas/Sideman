@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DUMMY_ANALYSIS, storage } from "@/lib/dummy-data";
 import { analyzeScore } from "@/lib/gemini/score-analysis";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { validateUpload } from "@/lib/validation";
 import type { ApiResponse, UploadResponse } from "@/types";
-
-const ALLOWED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<UploadResponse>>> {
+  const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Demo rate limit reached. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
+
   try {
     const formData = await request.formData();
-    const file = formData.get("file") as File | null;
+    const entry = formData.get("file");
+    const file = entry instanceof File ? entry : null;
 
     if (!file) {
       return NextResponse.json(
@@ -20,22 +28,11 @@ export async function POST(
       );
     }
 
-    // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const invalid = validateUpload(file);
+    if (invalid) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Invalid file type. Please upload PDF, PNG, or JPEG`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate file size
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { success: false, error: "File too large. Maximum size is 10MB" },
-        { status: 413 }
+        { success: false, error: invalid },
+        { status: file.size > 4 * 1024 * 1024 ? 413 : 400 }
       );
     }
 

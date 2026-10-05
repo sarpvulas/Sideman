@@ -1,32 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage, DUMMY_ANALYSIS } from "@/lib/dummy-data";
+import { attemptRequestSchema } from "@/lib/validation";
 import type { ApiResponse, AttemptResponse, Attempt, DetectedChord, VoicingType } from "@/types";
-
-// Request body type for client-side chord recognition results
-interface AttemptRequestBody {
-  lessonId: string;
-  barNumber: number;
-  recognizedChord: {
-    chord: string | null;
-    confidence: number;
-    voicingType: VoicingType;
-    pitchClasses: number[];
-  } | null;
-}
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<AttemptResponse>>> {
   try {
-    const body: AttemptRequestBody = await request.json();
-    const { lessonId, barNumber, recognizedChord } = body;
-
-    if (!lessonId) {
+    const parsed = attemptRequestSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "Lesson ID required" },
+        { success: false, error: "Invalid attempt request" },
         { status: 400 }
       );
     }
+    const { lessonId, barNumber, recognizedChord } = parsed.data;
 
     const lesson = storage.getLesson(lessonId);
     if (!lesson) {
