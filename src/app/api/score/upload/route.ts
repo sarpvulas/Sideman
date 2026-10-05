@@ -1,17 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DUMMY_ANALYSIS, storage } from "@/lib/dummy-data";
 import { analyzeScore } from "@/lib/gemini/score-analysis";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { errorMessage, rateLimited } from "@/lib/http";
+import { MAX_UPLOAD_BYTES, validateUpload } from "@/lib/validation";
 import type { ApiResponse, UploadResponse } from "@/types";
-
-const ALLOWED_TYPES = ["application/pdf", "image/png", "image/jpeg"];
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<UploadResponse>>> {
+  // Reject oversized bodies before buffering them (multipart overhead is small)
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES + 64 * 1024) {
+    return NextResponse.json(
+      { success: false, error: "File too large. Maximum size is 4MB" },
+      { status: 413 }
+    );
+  }
+
   try {
     const formData = await request.formData();
-    const file = formData.get("file") as File | null;
+    const entry = formData.get("file");
+    const file = entry instanceof File ? entry : null;
 
     if (!file) {
       return NextResponse.json(
@@ -20,22 +30,11 @@ export async function POST(
       );
     }
 
-    // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const invalid = validateUpload(file);
+    if (invalid) {
       return NextResponse.json(
-        {
-          success: false,
-          error: `Invalid file type. Please upload PDF, PNG, or JPEG`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate file size
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        { success: false, error: "File too large. Maximum size is 10MB" },
-        { status: 413 }
+        { success: false, error: invalid },
+        { status: file.size > MAX_UPLOAD_BYTES ? 413 : 400 }
       );
     }
 
@@ -45,12 +44,29 @@ export async function POST(
     // Extract filename without extension for fallback title
     const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
 
+    // Only requests that reach Gemini count against the limit
+    if (process.env.GEMINI_API_KEY) {
+      const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
+      if (!rl.allowed) return rateLimited(rl.retryAfterSec);
+    }
+
     // Use Gemini Vision to analyze the score
     const result = await analyzeScore(arrayBuffer, file.type);
 
     if (!result.success || !result.analysis) {
-      // Fall back to dummy data if Gemini fails
-      console.warn("Gemini analysis failed, using dummy data:", result.error);
+      if (process.env.GEMINI_API_KEY) {
+        // A configured deployment must not pass the sample off as the user's score
+        console.error("Gemini analysis failed:", result.error?.slice(0, 200));
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Could not analyze this lead sheet. Try another file or try again later.",
+          },
+          { status: 502 }
+        );
+      }
+
+      // Documented no-key demo mode: serve the built-in sample, clearly marked
       const analysis = {
         ...DUMMY_ANALYSIS,
         id: `analysis-${Date.now()}`,
@@ -64,6 +80,7 @@ export async function POST(
         data: {
           analysisId: analysis.id,
           analysis,
+          isSample: true,
         },
       });
     }
@@ -84,7 +101,7 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("Score upload error:", error);
+    console.error("Score upload error:", errorMessage(error));
     return NextResponse.json(
       { success: false, error: "Score analysis failed" },
       { status: 500 }

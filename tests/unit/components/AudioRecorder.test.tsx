@@ -10,7 +10,7 @@ describe("AudioRecorder", () => {
   it("renders idle state initially", () => {
     render(<AudioRecorder />);
     expect(screen.getByTestId("record-button")).toBeInTheDocument();
-    expect(screen.getByText("Tap to record your chord")).toBeInTheDocument();
+    expect(screen.getByText("Tap to record or upload audio")).toBeInTheDocument();
   });
 
   it("has correct aria-label for record button", () => {

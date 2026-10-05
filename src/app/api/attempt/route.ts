@@ -1,32 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storage, DUMMY_ANALYSIS } from "@/lib/dummy-data";
+import { storage } from "@/lib/dummy-data";
+import { badRequest, errorMessage, readJson } from "@/lib/http";
+import { attemptRequestSchema } from "@/lib/validation";
 import type { ApiResponse, AttemptResponse, Attempt, DetectedChord, VoicingType } from "@/types";
-
-// Request body type for client-side chord recognition results
-interface AttemptRequestBody {
-  lessonId: string;
-  barNumber: number;
-  recognizedChord: {
-    chord: string | null;
-    confidence: number;
-    voicingType: VoicingType;
-    pitchClasses: number[];
-  } | null;
-}
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<AttemptResponse>>> {
   try {
-    const body: AttemptRequestBody = await request.json();
-    const { lessonId, barNumber, recognizedChord } = body;
-
-    if (!lessonId) {
-      return NextResponse.json(
-        { success: false, error: "Lesson ID required" },
-        { status: 400 }
-      );
+    const parsed = attemptRequestSchema.safeParse(await readJson(request));
+    if (!parsed.success) {
+      return badRequest("Invalid attempt request");
     }
+    const { lessonId, barNumber, recognizedChord } = parsed.data;
 
     const lesson = storage.getLesson(lessonId);
     if (!lesson) {
@@ -38,7 +24,14 @@ export async function POST(
 
     // Get expected chord for this bar
     const analysis = storage.getAnalysis(lesson.scoreAnalysisId);
-    const currentBar = analysis?.bars[barNumber - 1] || DUMMY_ANALYSIS.bars[0];
+    // Never score against another score: a lesson without its analysis is gone
+    const currentBar = analysis?.bars[barNumber - 1];
+    if (!analysis || !currentBar) {
+      return NextResponse.json(
+        { success: false, error: "Lesson not found" },
+        { status: 404 }
+      );
+    }
     const expectedChord = currentBar.chordSymbol;
     const expectedVoicing: VoicingType = "shell"; // Default voicing type
 
@@ -123,7 +116,7 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("Attempt evaluation error:", error);
+    console.error("Attempt evaluation error:", errorMessage(error));
     return NextResponse.json(
       { success: false, error: "Failed to evaluate attempt" },
       { status: 500 }

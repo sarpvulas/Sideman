@@ -1,29 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storage, DUMMY_ANALYSIS } from "@/lib/dummy-data";
+import { storage } from "@/lib/dummy-data";
 import { generateCoaching, CoachingContext, CoachingResponse } from "@/lib/gemini";
-import type { ApiResponse, VoicingType, DetectedChord } from "@/types";
-
-interface CoachingRequestBody {
-  lessonId: string;
-  barNumber: number;
-  detectedChord: DetectedChord | null;
-  isCorrect: boolean;
-  attemptNumber?: number;
-}
+import { badRequest, errorMessage, rateLimited, readJson } from "@/lib/http";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { coachingRequestSchema } from "@/lib/validation";
+import type { ApiResponse, VoicingType } from "@/types";
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<CoachingResponse>>> {
   try {
-    const body: CoachingRequestBody = await request.json();
-    const { lessonId, barNumber, detectedChord, isCorrect, attemptNumber = 1 } = body;
-
-    if (!lessonId) {
-      return NextResponse.json(
-        { success: false, error: "Lesson ID required" },
-        { status: 400 }
-      );
+    const parsed = coachingRequestSchema.safeParse(await readJson(request));
+    if (!parsed.success) {
+      return badRequest("Invalid coaching request");
     }
+    const { lessonId, barNumber, detectedChord, isCorrect, attemptNumber = 1 } = parsed.data;
 
     const lesson = storage.getLesson(lessonId);
     if (!lesson) {
@@ -35,8 +26,14 @@ export async function POST(
 
     // Get bar information
     const analysis = storage.getAnalysis(lesson.scoreAnalysisId);
-    const currentBar = analysis?.bars[barNumber - 1] || DUMMY_ANALYSIS.bars[0];
-    const previousBar = barNumber > 1 ? analysis?.bars[barNumber - 2] : undefined;
+    const currentBar = analysis?.bars[barNumber - 1];
+    if (!analysis || !currentBar) {
+      return NextResponse.json(
+        { success: false, error: "Lesson not found" },
+        { status: 404 }
+      );
+    }
+    const previousBar = barNumber > 1 ? analysis.bars[barNumber - 2] : undefined;
     const expectedVoicing: VoicingType = "shell";
 
     // Build lesson history from attempts
@@ -60,6 +57,12 @@ export async function POST(
       lessonHistory,
     };
 
+    // Only requests that will actually call Gemini count against the limit
+    if (process.env.GEMINI_API_KEY) {
+      const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
+      if (!rl.allowed) return rateLimited(rl.retryAfterSec);
+    }
+
     // Generate coaching feedback
     const coaching = await generateCoaching(context);
 
@@ -68,7 +71,7 @@ export async function POST(
       data: coaching,
     });
   } catch (error) {
-    console.error("Coaching API error:", error);
+    console.error("Coaching API error:", errorMessage(error));
     return NextResponse.json(
       { success: false, error: "Failed to generate coaching feedback" },
       { status: 500 }

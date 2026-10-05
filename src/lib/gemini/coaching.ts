@@ -96,11 +96,6 @@ export async function generateCoaching(
     const response = result.response;
     const text = response.text();
 
-    // Log the raw coaching response for debugging
-    console.log("=== GEMINI COACHING RESPONSE ===");
-    console.log(text);
-    console.log("=== END COACHING RESPONSE ===");
-
     // Parse JSON response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -125,7 +120,7 @@ export async function generateCoaching(
       encouragement: "Keep at it!",
     };
   } catch (error) {
-    console.error("Gemini coaching error:", error);
+    console.error("Gemini coaching error:", error instanceof Error ? error.message : "unknown");
     return generateFallbackCoaching(context);
   }
 }

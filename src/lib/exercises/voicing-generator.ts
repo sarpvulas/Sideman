@@ -135,8 +135,8 @@ function getChordTones(chordSymbol: string): { root: string; third: string; fift
     intervals = CHORD_INTERVALS["maj7"];
   }
 
-  // Use flats if root uses flat
-  const preferFlats = root.includes("b");
+  // Jazz lead sheets spell with flats unless the root is written with a sharp
+  const preferFlats = !root.includes("#");
 
   return {
     root: root,
