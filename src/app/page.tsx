@@ -14,6 +14,7 @@ export default function HomePage() {
   const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
   const [analysis, setAnalysis] = useState<ScoreAnalysis | null>(null);
+  const [isSample, setIsSample] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleUpload = useCallback(async (file: File) => {
@@ -36,6 +37,7 @@ export default function HomePage() {
       }
 
       setAnalysis(result.data.analysis);
+      setIsSample(result.data.isSample === true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -119,6 +121,14 @@ export default function HomePage() {
       )}
 
       {/* Analysis result */}
+      {analysis && !isUploading && isSample && (
+        <p
+          data-testid="sample-score-label"
+          className="text-sm text-center text-accent-gold mb-4"
+        >
+          Sample score: no AI key is configured, so this is a built-in example, not your uploaded sheet.
+        </p>
+      )}
       {analysis && !isUploading && (
         <AnalysisResult
           title={analysis.title}

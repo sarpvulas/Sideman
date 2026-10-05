@@ -97,6 +97,8 @@ export interface ApiResponse<T> {
 export interface UploadResponse {
   analysisId: string;
   analysis: ScoreAnalysis;
+  /** True when the bars are the built-in sample (demo mode without a Gemini key) */
+  isSample?: boolean;
 }
 
 export interface StartLessonResponse {
