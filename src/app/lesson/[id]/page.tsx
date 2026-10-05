@@ -9,7 +9,7 @@ import { Card, Skeleton } from "@/components/ui";
 import { DUMMY_ANALYSIS, storage, createLessonFromAnalysis } from "@/lib/dummy-data";
 import { useChordRecognition } from "@/hooks/useChordRecognition";
 import { useCoaching } from "@/hooks/useCoaching";
-import type { Lesson, Bar, DetectedChord } from "@/types";
+import type { Lesson, Bar, DetectedChord, ScoreAnalysis } from "@/types";
 
 interface AttemptResult {
   correct: boolean;
@@ -26,6 +26,7 @@ export default function LessonPage() {
   const lessonId = params.id as string;
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [analysis, setAnalysis] = useState<ScoreAnalysis>(DUMMY_ANALYSIS);
   const [currentBar, setCurrentBar] = useState<Bar | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -42,20 +43,31 @@ export default function LessonPage() {
     const loadLesson = async () => {
       setIsLoading(true);
 
-      // Try to get lesson from storage
-      let storedLesson = storage.getLesson(lessonId);
+      let storedLesson: Lesson | undefined;
+      let storedAnalysis: ScoreAnalysis = DUMMY_ANALYSIS;
 
-      // If no lesson found, create a dummy one for demo purposes
+      // The server holds the lesson created from the uploaded score
+      try {
+        const res = await fetch(`/api/lesson/${encodeURIComponent(lessonId)}`);
+        const json = await res.json();
+        if (json.success) {
+          storedLesson = json.data.lesson;
+          storedAnalysis = json.data.analysis;
+        }
+      } catch {
+        // fall through to the sample lesson
+      }
+
+      // If the lesson is gone (e.g. server restarted), use the sample score
       if (!storedLesson) {
         const dummyLesson = createLessonFromAnalysis(DUMMY_ANALYSIS);
         dummyLesson.id = lessonId;
-        storage.saveLesson(dummyLesson);
-        storage.saveAnalysis(DUMMY_ANALYSIS);
         storedLesson = dummyLesson;
       }
 
+      setAnalysis(storedAnalysis);
       setLesson(storedLesson);
-      setCurrentBar(DUMMY_ANALYSIS.bars[storedLesson.currentBarIndex]);
+      setCurrentBar(storedAnalysis.bars[storedLesson.currentBarIndex]);
       setIsLoading(false);
     };
 
@@ -163,11 +175,11 @@ export default function LessonPage() {
     if (nextIndex < lesson.totalBars) {
       const updatedLesson = { ...lesson, currentBarIndex: nextIndex };
       setLesson(updatedLesson);
-      setCurrentBar(DUMMY_ANALYSIS.bars[nextIndex]);
+      setCurrentBar(analysis.bars[nextIndex]);
       setLastAttempt(null);
       storage.updateLesson(lesson.id, { currentBarIndex: nextIndex });
     }
-  }, [lesson]);
+  }, [lesson, analysis]);
 
   // Navigate to previous bar
   const handlePreviousBar = useCallback(() => {
@@ -177,11 +189,11 @@ export default function LessonPage() {
     if (prevIndex >= 0) {
       const updatedLesson = { ...lesson, currentBarIndex: prevIndex };
       setLesson(updatedLesson);
-      setCurrentBar(DUMMY_ANALYSIS.bars[prevIndex]);
+      setCurrentBar(analysis.bars[prevIndex]);
       setLastAttempt(null);
       storage.updateLesson(lesson.id, { currentBarIndex: prevIndex });
     }
-  }, [lesson]);
+  }, [lesson, analysis]);
 
   // Loading state
   if (isLoading) {
@@ -228,7 +240,7 @@ export default function LessonPage() {
             Lesson Not Found
           </h2>
           <p className="text-primary-400 mb-4">
-            This lesson doesn't exist or has expired.
+            This lesson doesn&apos;t exist or has expired.
           </p>
           <button
             className="btn-primary"
@@ -249,7 +261,7 @@ export default function LessonPage() {
         transition={{ duration: 0.3 }}
       >
         <h1 className="text-2xl font-display font-bold text-primary-100 text-center mb-8">
-          Practice: {DUMMY_ANALYSIS.title}
+          Practice: {analysis.title}
         </h1>
 
         <LessonView
