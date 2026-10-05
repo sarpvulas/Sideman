@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage, DUMMY_ANALYSIS } from "@/lib/dummy-data";
+import { badRequest, errorMessage, readJson } from "@/lib/http";
 import { attemptRequestSchema } from "@/lib/validation";
 import type { ApiResponse, AttemptResponse, Attempt, DetectedChord, VoicingType } from "@/types";
 
@@ -7,12 +8,9 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<AttemptResponse>>> {
   try {
-    const parsed = attemptRequestSchema.safeParse(await request.json());
+    const parsed = attemptRequestSchema.safeParse(await readJson(request));
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: "Invalid attempt request" },
-        { status: 400 }
-      );
+      return badRequest("Invalid attempt request");
     }
     const { lessonId, barNumber, recognizedChord } = parsed.data;
 
@@ -111,7 +109,7 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("Attempt evaluation error:", error);
+    console.error("Attempt evaluation error:", errorMessage(error));
     return NextResponse.json(
       { success: false, error: "Failed to evaluate attempt" },
       { status: 500 }

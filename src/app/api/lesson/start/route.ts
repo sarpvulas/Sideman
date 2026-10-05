@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage, createLessonFromAnalysis } from "@/lib/dummy-data";
+import { errorMessage, readJson } from "@/lib/http";
 import { startLessonSchema } from "@/lib/validation";
 import type { ApiResponse, StartLessonResponse } from "@/types";
 
@@ -7,7 +8,7 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<StartLessonResponse>>> {
   try {
-    const parsed = startLessonSchema.safeParse(await request.json());
+    const parsed = startLessonSchema.safeParse(await readJson(request));
     const analysisId = parsed.success ? parsed.data.analysisId : null;
 
     if (!analysisId) {
@@ -38,7 +39,7 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("Lesson start error:", error);
+    console.error("Lesson start error:", errorMessage(error));
     return NextResponse.json(
       { success: false, error: "Failed to start lesson" },
       { status: 500 }

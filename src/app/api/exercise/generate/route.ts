@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateVoicingExercisesWithGemini } from "@/lib/gemini/exercise-generation";
+import { errorMessage, rateLimited, readJson } from "@/lib/http";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { exerciseRequestSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
-  const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: "Demo rate limit reached. Please try again later.", exercises: [] },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
-    );
-  }
-
   try {
-    const parsed = exerciseRequestSchema.safeParse(await request.json());
+    const parsed = exerciseRequestSchema.safeParse(await readJson(request));
     if (!parsed.success) {
       return NextResponse.json(
         { error: "A valid chord symbol is required", exercises: [] },
@@ -28,6 +21,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Only requests that reach Gemini count against the limit
+    const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
+    if (!rl.allowed) return rateLimited(rl.retryAfterSec, { exercises: [] });
+
     const result = await generateVoicingExercisesWithGemini(parsed.data.chordSymbol);
 
     if (result.error) {
@@ -40,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ exercises: result.exercises });
   } catch (error) {
-    console.error("Exercise generation API error:", error);
+    console.error("Exercise generation API error:", errorMessage(error));
     return NextResponse.json(
       { error: "Failed to generate exercises", exercises: [] },
       { status: 500 }

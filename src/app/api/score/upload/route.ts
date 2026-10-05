@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { DUMMY_ANALYSIS, storage } from "@/lib/dummy-data";
 import { analyzeScore } from "@/lib/gemini/score-analysis";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
-import { validateUpload } from "@/lib/validation";
+import { errorMessage, rateLimited } from "@/lib/http";
+import { MAX_UPLOAD_BYTES, validateUpload } from "@/lib/validation";
 import type { ApiResponse, UploadResponse } from "@/types";
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<UploadResponse>>> {
-  const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
-  if (!rl.allowed) {
+  // Reject oversized bodies before buffering them (multipart overhead is small)
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_UPLOAD_BYTES + 64 * 1024) {
     return NextResponse.json(
-      { success: false, error: "Demo rate limit reached. Please try again later." },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      { success: false, error: "File too large. Maximum size is 4MB" },
+      { status: 413 }
     );
   }
 
@@ -32,7 +34,7 @@ export async function POST(
     if (invalid) {
       return NextResponse.json(
         { success: false, error: invalid },
-        { status: file.size > 4 * 1024 * 1024 ? 413 : 400 }
+        { status: file.size > MAX_UPLOAD_BYTES ? 413 : 400 }
       );
     }
 
@@ -41,6 +43,12 @@ export async function POST(
 
     // Extract filename without extension for fallback title
     const filenameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+
+    // Only requests that reach Gemini count against the limit
+    if (process.env.GEMINI_API_KEY) {
+      const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
+      if (!rl.allowed) return rateLimited(rl.retryAfterSec);
+    }
 
     // Use Gemini Vision to analyze the score
     const result = await analyzeScore(arrayBuffer, file.type);
@@ -81,7 +89,7 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error("Score upload error:", error);
+    console.error("Score upload error:", errorMessage(error));
     return NextResponse.json(
       { success: false, error: "Score analysis failed" },
       { status: 500 }

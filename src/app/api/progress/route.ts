@@ -28,7 +28,7 @@ export async function GET(
       data: progress,
     });
   } catch (error) {
-    console.error("Progress fetch error:", error);
+    console.error("Progress fetch error:", error instanceof Error ? error.message : "unknown");
     return NextResponse.json(
       { success: false, error: "Failed to fetch progress" },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage, DUMMY_ANALYSIS } from "@/lib/dummy-data";
 import { generateCoaching, CoachingContext, CoachingResponse } from "@/lib/gemini";
+import { badRequest, errorMessage, rateLimited, readJson } from "@/lib/http";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { coachingRequestSchema } from "@/lib/validation";
 import type { ApiResponse, VoicingType } from "@/types";
@@ -8,21 +9,10 @@ import type { ApiResponse, VoicingType } from "@/types";
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<CoachingResponse>>> {
-  const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { success: false, error: "Demo rate limit reached. Please try again later." },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
-    );
-  }
-
   try {
-    const parsed = coachingRequestSchema.safeParse(await request.json());
+    const parsed = coachingRequestSchema.safeParse(await readJson(request));
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: "Invalid coaching request" },
-        { status: 400 }
-      );
+      return badRequest("Invalid coaching request");
     }
     const { lessonId, barNumber, detectedChord, isCorrect, attemptNumber = 1 } = parsed.data;
 
@@ -61,6 +51,12 @@ export async function POST(
       lessonHistory,
     };
 
+    // Only requests that will actually call Gemini count against the limit
+    if (process.env.GEMINI_API_KEY) {
+      const rl = checkRateLimit(`gemini:${clientIp(request.headers)}`);
+      if (!rl.allowed) return rateLimited(rl.retryAfterSec);
+    }
+
     // Generate coaching feedback
     const coaching = await generateCoaching(context);
 
@@ -69,7 +65,7 @@ export async function POST(
       data: coaching,
     });
   } catch (error) {
-    console.error("Coaching API error:", error);
+    console.error("Coaching API error:", errorMessage(error));
     return NextResponse.json(
       { success: false, error: "Failed to generate coaching feedback" },
       { status: 500 }

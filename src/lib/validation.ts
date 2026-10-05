@@ -6,7 +6,7 @@ export const chordSymbolSchema = z
   .trim()
   .min(1)
   .max(20)
-  .regex(/^[A-G][#b]?[A-Za-z0-9#b+\-°øΔ∆(),/]*$/, "Invalid chord symbol");
+  .regex(/^[A-G][#b]?[A-Za-z0-9#b+\-–−°øΔ∆△(),/]*$/, "Invalid chord symbol");
 
 export const exerciseRequestSchema = z.object({
   chordSymbol: chordSymbolSchema,
