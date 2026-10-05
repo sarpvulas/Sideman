@@ -125,42 +125,73 @@ export function generateDummyRecognition(expectedChord: string) {
   };
 }
 
-// In-memory storage for Phase 0
+// In-memory storage for Phase 0. Entries expire after TTL_MS and each store
+// holds at most MAX_ENTRIES (oldest evicted first), so a public demo cannot
+// grow memory without bound.
+const TTL_MS = 60 * 60 * 1000;
+const MAX_ENTRIES = 200;
+
+interface Stamped<T> {
+  value: T;
+  savedAt: number;
+}
+
+export class ExpiringStore<T> {
+  private map = new Map<string, Stamped<T>>();
+
+  constructor(
+    private ttlMs: number = TTL_MS,
+    private maxEntries: number = MAX_ENTRIES
+  ) {}
+
+  set(id: string, value: T, now: number = Date.now()): void {
+    this.map.delete(id);
+    this.map.set(id, { value, savedAt: now });
+    this.map.forEach((entry, key) => {
+      if (now - entry.savedAt > this.ttlMs) this.map.delete(key);
+    });
+    while (this.map.size > this.maxEntries) {
+      const oldest = this.map.keys().next().value as string;
+      this.map.delete(oldest);
+    }
+  }
+
+  get(id: string, now: number = Date.now()): T | undefined {
+    const entry = this.map.get(id);
+    if (!entry) return undefined;
+    if (now - entry.savedAt > this.ttlMs) {
+      this.map.delete(id);
+      return undefined;
+    }
+    return entry.value;
+  }
+
+  update(id: string, updates: Partial<T>, now: number = Date.now()): void {
+    const entry = this.map.get(id);
+    if (!entry || now - entry.savedAt > this.ttlMs) return;
+    // keep the original save time so a lesson still expires after the TTL
+    this.map.set(id, { value: { ...entry.value, ...updates }, savedAt: entry.savedAt });
+  }
+}
+
 // Use globalThis to persist across Next.js hot reloads in development
 declare global {
   // eslint-disable-next-line no-var
-  var __sidemanAnalysisStore: Map<string, ScoreAnalysis> | undefined;
+  var __sidemanAnalysisStore: ExpiringStore<ScoreAnalysis> | undefined;
   // eslint-disable-next-line no-var
-  var __sidemanLessonStore: Map<string, Lesson> | undefined;
+  var __sidemanLessonStore: ExpiringStore<Lesson> | undefined;
 }
 
-const analysisStore = globalThis.__sidemanAnalysisStore ?? new Map<string, ScoreAnalysis>();
-const lessonStore = globalThis.__sidemanLessonStore ?? new Map<string, Lesson>();
+const analysisStore = globalThis.__sidemanAnalysisStore ?? new ExpiringStore<ScoreAnalysis>();
+const lessonStore = globalThis.__sidemanLessonStore ?? new ExpiringStore<Lesson>();
 
-// Persist to globalThis for development
 globalThis.__sidemanAnalysisStore = analysisStore;
 globalThis.__sidemanLessonStore = lessonStore;
 
 export const storage = {
-  saveAnalysis: (analysis: ScoreAnalysis) => {
-    console.log("[Storage] Saving analysis:", analysis.id);
-    analysisStore.set(analysis.id, analysis);
-  },
-  getAnalysis: (id: string) => {
-    const analysis = analysisStore.get(id);
-    console.log("[Storage] Getting analysis:", id, analysis ? "found" : "not found");
-    console.log("[Storage] Available analyses:", Array.from(analysisStore.keys()));
-    return analysis;
-  },
-
-  saveLesson: (lesson: Lesson) => {
-    lessonStore.set(lesson.id, lesson);
-  },
+  saveAnalysis: (analysis: ScoreAnalysis) => analysisStore.set(analysis.id, analysis),
+  getAnalysis: (id: string) => analysisStore.get(id),
+  saveLesson: (lesson: Lesson) => lessonStore.set(lesson.id, lesson),
   getLesson: (id: string) => lessonStore.get(id),
-  updateLesson: (id: string, updates: Partial<Lesson>) => {
-    const lesson = lessonStore.get(id);
-    if (lesson) {
-      lessonStore.set(id, { ...lesson, ...updates });
-    }
-  },
+  updateLesson: (id: string, updates: Partial<Lesson>) => lessonStore.update(id, updates),
 };
