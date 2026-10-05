@@ -29,6 +29,8 @@ export async function POST(
     // Create a new lesson
     const lesson = createLessonFromAnalysis(analysis);
     storage.saveLesson(lesson);
+    // Re-save so the analysis expires after, not before, the lesson that uses it
+    storage.saveAnalysis(analysis);
 
     return NextResponse.json({
       success: true,
