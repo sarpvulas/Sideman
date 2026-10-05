@@ -54,8 +54,19 @@ export async function POST(
     const result = await analyzeScore(arrayBuffer, file.type);
 
     if (!result.success || !result.analysis) {
-      // Fall back to dummy data if Gemini fails
-      console.warn("Gemini analysis failed, using dummy data:", result.error);
+      if (process.env.GEMINI_API_KEY) {
+        // A configured deployment must not pass the sample off as the user's score
+        console.error("Gemini analysis failed:", result.error?.slice(0, 200));
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Could not analyze this lead sheet. Try another file or try again later.",
+          },
+          { status: 502 }
+        );
+      }
+
+      // Documented no-key demo mode: serve the built-in sample, clearly marked
       const analysis = {
         ...DUMMY_ANALYSIS,
         id: `analysis-${Date.now()}`,
@@ -69,6 +80,7 @@ export async function POST(
         data: {
           analysisId: analysis.id,
           analysis,
+          isSample: true,
         },
       });
     }
