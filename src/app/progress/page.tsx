@@ -67,6 +67,9 @@ export default function ProgressPage() {
         <h1 className="text-3xl font-display font-bold text-primary-100 text-center mb-8">
           Your Progress
         </h1>
+        <p className="text-sm text-primary-400 text-center -mt-6 mb-8">
+          Sample data: progress is not saved between sessions yet.
+        </p>
 
         {/* Stats grid */}
         <motion.div

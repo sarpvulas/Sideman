@@ -124,10 +124,19 @@ export function ExercisePanel({ chordSymbol, className }: ExercisePanelProps) {
     full: "bg-amber-500",
   };
 
+  const isNoChord = /^N\.?C\.?$/i.test(chordSymbol.trim());
+
   return (
     <div className={cn("space-y-4", className)}>
+      {/* No chord to voice (N.C. = no chord) */}
+      {isNoChord && (
+        <p className="text-sm text-center text-primary-400">
+          No chord in this bar, so there is nothing to voice.
+        </p>
+      )}
+
       {/* Generate button */}
-      {!exercises && (
+      {!exercises && !isNoChord && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

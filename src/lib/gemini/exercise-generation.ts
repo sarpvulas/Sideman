@@ -76,8 +76,6 @@ export async function generateVoicingExercisesWithGemini(
 
     const prompt = `${EXERCISE_GENERATION_PROMPT}\n\nGenerate voicing exercises for: ${chordSymbol}`;
 
-    console.log("=== GENERATING EXERCISES FOR:", chordSymbol, "===");
-
     const result = await model.generateContent({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
@@ -88,10 +86,6 @@ export async function generateVoicingExercisesWithGemini(
 
     const response = result.response;
     const text = response.text();
-
-    console.log("=== GEMINI EXERCISE RESPONSE ===");
-    console.log(text);
-    console.log("=== END RESPONSE ===");
 
     // Parse JSON from response
     const jsonMatch = text.match(/\[[\s\S]*\]/);
@@ -115,7 +109,7 @@ export async function generateVoicingExercisesWithGemini(
 
     return { exercises: [], error: "Failed to parse exercises from response" };
   } catch (error) {
-    console.error("Exercise generation error:", error);
+    console.error("Exercise generation error:", error instanceof Error ? error.message : "unknown");
     return {
       exercises: [],
       error: error instanceof Error ? error.message : "Failed to generate exercises",
