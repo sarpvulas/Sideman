@@ -7,7 +7,7 @@ import {
 } from "@/lib/validation";
 
 describe("exerciseRequestSchema", () => {
-  it.each(["Cm7", "F#maj7", "Bb7b9", "G7/B", "Dø7", "C7(#9,b13)", "C-7", "C–7", "C△7", "Cm(maj7)"])("accepts %s", (c) => {
+  it.each(["Cm7", "F#maj7", "Bb7b9", "G7/B", "Dø7", "C7(#9,b13)", "C-7", "C–7", "C△7", "Cm(maj7)", "B♭maj7", "F♯7"])("accepts %s", (c) => {
     expect(exerciseRequestSchema.safeParse({ chordSymbol: c }).success).toBe(true);
   });
 
@@ -50,5 +50,12 @@ describe("validateUpload", () => {
     expect(validateUpload({ type: "image/gif", size: 10 })).toMatch(/Invalid file type/);
     expect(validateUpload({ type: "image/png", size: 0 })).toMatch(/empty/);
     expect(validateUpload({ type: "image/png", size: MAX_UPLOAD_BYTES + 1 })).toMatch(/too large/);
+  });
+});
+
+describe("chord symbol normalisation", () => {
+  it("rewrites unicode flat and sharp signs to b and #", () => {
+    expect(exerciseRequestSchema.parse({ chordSymbol: "B♭maj7" }).chordSymbol).toBe("Bbmaj7");
+    expect(exerciseRequestSchema.parse({ chordSymbol: "F♯m7♭5" }).chordSymbol).toBe("F#m7b5");
   });
 });
